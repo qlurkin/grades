@@ -1,15 +1,21 @@
 from __future__ import annotations
 from typing import Callable
 from jsonschema import validate as check_schema
+from numpy import float64, floor, ceil, abs, min, max, round
 from pandas import DataFrame, Series
 import json
-import inspect
+from datetime import datetime
+
+
+class CyclicDependencyError(Exception):
+    pass
 
 
 schema = {
     "type": "object",
     "properties": {
         "title": {"type": "string"},
+        "code": {"type": "string"},
         "course": {"type": "string"},
         "datetime": {"type": "string"},
         "columns": {
@@ -53,7 +59,7 @@ schema = {
             },
         },
     },
-    "required": ["title", "course", "datetime", "columns"],
+    "required": ["title", "course", "code", "datetime", "columns"],
 }
 
 
@@ -61,10 +67,19 @@ def validate(data: dict):
     check_schema(instance=data, schema=schema)
 
 
+def validate_column_name(name: str):
+    if not name.isidentifier():
+        raise ValueError("Columns name must be valid identifier")
+
+
 class Document:
-    def __init__(self):
+    def __init__(self, title: str, course: str, code: str, date: datetime):
         self.__source = DataFrame()
         self.__computed = {}
+        self.title = title
+        self.code = code
+        self.date = date
+        self.course = course
 
     @staticmethod
     def from_file(path: str) -> Document:
@@ -75,7 +90,12 @@ class Document:
     @staticmethod
     def from_dict(data: dict) -> Document:
         validate(data)
-        self = Document()
+        self = Document(
+            data["title"],
+            data["course"],
+            data["code"],
+            datetime.fromisoformat(data["datetime"]),
+        )
         for column in data["columns"]:
             if column["type"] == "source":
                 self.add_source_column(column["name"], column["rows"])
@@ -84,17 +104,33 @@ class Document:
         return self
 
     def add_source_column(self, name: str, column: dict):
+        validate_column_name(name)
         if all(isinstance(index, str) for index in column):
-            serie = Series(column)
+            if all(isinstance(value, (float, int)) for value in column.values()):
+                serie = Series(column, dtype=float64)
+            elif all(isinstance(value, str) for value in column.values()):
+                serie = Series(column)
+            else:
+                raise ValueError("Values must be all the same type (number or string)")
             self.__source[name] = serie
         else:
             raise ValueError("Indexes must be str")
 
     def add_computed_column(self, name: str, formula: str):
+        validate_column_name(name)
         self.__computed[name] = formula
 
     def __compute_column(self, df: DataFrame, name: str):
-        ns = {}
+        ns: dict = {
+            "__builtins__": {},
+            "max": max,
+            "min": min,
+            "ceil": ceil,
+            "floor": floor,
+            "round": round,
+            "abs": abs,
+        }
+        # ns = {}
         for col in df.columns:
             ns[col] = df[col]
         df[name] = eval(self.__computed[name], ns)
@@ -102,8 +138,11 @@ class Document:
     def compute(self) -> DataFrame:
         df = self.__source.copy()
         to_compute = list(self.__computed.keys())
-        # TODO: do something about cycle
+        max_iter = len(to_compute) ** 2
+        count = 0
         while len(to_compute) > 0:
+            if count > max_iter:
+                raise CyclicDependencyError()
             name = to_compute.pop(0)
             try:
                 self.__compute_column(df, name)
@@ -112,6 +151,7 @@ class Document:
                     raise e
                 else:
                     to_compute.append(name)
+            count += 1
         return df
 
     def column(self, column_name: str) -> dict:
@@ -120,10 +160,55 @@ class Document:
     def index(self, index: str) -> dict:
         return self.compute().loc[index].to_dict()
 
+    def column_type(self, name: str) -> str:
+        if self.compute()[name].dtype == "float64":
+            return "number"
+        else:
+            return "string"
+
+    def save(self, path: str):
+        columns = []
+        for name in self.__source.columns:
+            columns.append(
+                {
+                    "type": "source",
+                    "dtype": self.column_type(name),
+                    "name": name,
+                    "rows": dict(self.column(name)),
+                }
+            )
+
+        for name in self.__computed:
+            columns.append(
+                {"type": "computed", "name": name, "formula": self.__computed[name]}
+            )
+
+        res = {
+            "title": self.title,
+            "course": self.course,
+            "code": self.code,
+            "datetime": self.date.isoformat(),
+            "columns": columns,
+        }
+        with open(path, "w", encoding="utf8") as file:
+            json.dump(res, file, indent=4)
+
     def __getitem__(self, coords: tuple[str, str]):
         return self.compute().loc[coords]
 
     def __setitem__(self, coords: tuple[str, str], value):
+        index, column = coords
+        if column in self.__source.columns:
+            if self.__source[column].dtype == "float64" and not isinstance(
+                value, (float, int)
+            ):
+                raise TypeError(f"`{value}` is incompatible with column type `number`")
+            if self.__source[column].dtype == "object" and not isinstance(value, str):
+                raise TypeError(f"`{value}` is incompatible with column type `string`")
+        else:
+            validate_column_name(column)
+            if not isinstance(value, (int, float, str)):
+                raise TypeError("Document only support number and string columns")
         self.__source.loc[coords] = value
 
     def __str__(self):
@@ -133,8 +218,9 @@ class Document:
 def main():
     data = {
         "title": "Examen",
-        "course": "in2l",
-        "datetime": "",
+        "course": "Programmation",
+        "code": "in2l",
+        "datetime": "2025-10-23T15:45:12",
         "columns": [
             {
                 "type": "source",
@@ -153,7 +239,16 @@ def main():
     print(doc["lur", "quad"])
     doc["lrg", "lab1"] = 15
     print(doc)
+    doc2 = Document("Title", "Course", "code", datetime.now())
+    doc2["11111", "math"] = -20
+    doc2["22222", "math"] = 15
+    doc2.add_computed_column("prout", "total * 2")
+    doc2.add_computed_column("total", "abs(math)")
+    doc2["11111", "name"] = "Quentin"
+    print(doc2)
+    doc2.save("test.json")
 
 
+# TODO: on va utiliser textual pour le TUI
 if __name__ == "__main__":
     main()
