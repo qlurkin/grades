@@ -1,0 +1,36 @@
+{
+    "title": "Title",
+    "course": "Course",
+    "code": "code",
+    "datetime": "2026-01-19T11:51:47.193943",
+    "columns": [
+        {
+            "type": "source",
+            "dtype": "number",
+            "name": "math",
+            "rows": {
+                "11111": -20.0,
+                "22222": 15.0
+            }
+        },
+        {
+            "type": "source",
+            "dtype": "string",
+            "name": "name",
+            "rows": {
+                "11111": "Quentin",
+                "22222": NaN
+            }
+        },
+        {
+            "type": "computed",
+            "name": "prout",
+            "formula": "total * 2"
+        },
+        {
+            "type": "computed",
+            "name": "total",
+            "formula": "abs(math)"
+        }
+    ]
+}
