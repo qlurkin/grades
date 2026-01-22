@@ -1,0 +1,89 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string"
+    },
+    "course": {
+      "type": "string"
+    },
+    "datetime": {
+      "type": "string"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": ["source", "computed"]
+          }
+        },
+        "required": ["name", "type"],
+        "if": {
+          "properties": {
+            "type": {
+              "const": "source"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "rows": {
+              "type": "object"
+            },
+            "dtype": {
+              "enum": ["number", "string"]
+            }
+          },
+          "required": ["rows", "dtype"],
+          "if": {
+            "properties": {
+              "dtype": {
+                "const": "number"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rows": {
+                "patternProperties": {
+                  "^.+$": {
+                    "type": ["number", "null"]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "rows": {
+                "patternProperties": {
+                  "^.+$": {
+                    "type": ["string", "null"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "formula": {
+              "type": "string"
+            }
+          },
+          "required": ["formula"]
+        }
+      }
+    }
+  },
+  "required": ["title", "course", "code", "datetime", "columns"]
+}
+

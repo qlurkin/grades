@@ -2,6 +2,13 @@ from textual.app import App, ComposeResult
 from textual.containers import HorizontalGroup, ScrollableContainer
 from textual.widgets import Button, Footer, Header, DataTable
 from textual.reactive import reactive
+from document import Document
+
+
+class Sheet(DataTable):
+    def on_data_table_cell_selected(self, event: DataTable.CellSelected):
+        with open("output", "a") as file:
+            file.write(str(event) + "\n")
 
 
 class UI(App):
@@ -11,9 +18,13 @@ class UI(App):
         ("q", "quit", "Quit"),
     ]
 
+    def __init__(self, doc: Document):
+        super().__init__()
+        self.doc = doc
+
     def compose(self) -> ComposeResult:
         yield Header()
-        yield DataTable(id="sheet")
+        yield Sheet(id="sheet")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -32,4 +43,5 @@ class UI(App):
 
 
 if __name__ == "__main__":
-    UI().run()
+    doc = Document.from_file("test.json")
+    UI(doc).run()

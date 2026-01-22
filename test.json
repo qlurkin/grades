@@ -2,7 +2,7 @@
     "title": "Title",
     "course": "Course",
     "code": "code",
-    "datetime": "2026-01-19T11:51:47.193943",
+    "datetime": "2026-01-22T18:57:37.398814",
     "columns": [
         {
             "type": "source",
@@ -19,7 +19,16 @@
             "name": "name",
             "rows": {
                 "11111": "Quentin",
-                "22222": NaN
+                "22222": null
+            }
+        },
+        {
+            "type": "source",
+            "dtype": "number",
+            "name": "info",
+            "rows": {
+                "11111": null,
+                "22222": 12.5
             }
         },
         {

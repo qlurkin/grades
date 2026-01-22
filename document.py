@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Callable
+from types import NoneType
 from jsonschema import validate as check_schema
 from numpy import float64, floor, ceil, abs, min, max, round
+import math
 from pandas import DataFrame, Series
 import json
 from datetime import datetime
@@ -11,56 +12,18 @@ class CyclicDependencyError(Exception):
     pass
 
 
-schema = {
-    "type": "object",
-    "properties": {
-        "title": {"type": "string"},
-        "code": {"type": "string"},
-        "course": {"type": "string"},
-        "datetime": {"type": "string"},
-        "columns": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "type": {"enum": ["source", "computed"]},
-                },
-                "required": ["name", "type"],
-                "if": {"properties": {"type": {"const": "source"}}},
-                "then": {
-                    "properties": {
-                        "rows": {
-                            "type": "object",
-                        },
-                        "dtype": {"enum": ["number", "string"]},
-                    },
-                    "required": ["rows", "dtype"],
-                    "if": {"properties": {"dtype": {"const": "number"}}},
-                    "then": {
-                        "properties": {
-                            "rows": {
-                                "patternProperties": {"^.+$": {"type": "number"}},
-                            }
-                        }
-                    },
-                    "else": {
-                        "properties": {
-                            "rows": {
-                                "patternProperties": {"^.+$": {"type": "string"}},
-                            }
-                        }
-                    },
-                },
-                "else": {
-                    "properties": {"formula": {"type": "string"}},
-                    "required": ["formula"],
-                },
-            },
-        },
-    },
-    "required": ["title", "course", "code", "datetime", "columns"],
-}
+with open("schema.json") as file:
+    schema = json.load(file)
+
+
+def clean_nan(obj):
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    if isinstance(obj, dict):
+        return {k: clean_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean_nan(v) for v in obj]
+    return obj
 
 
 def validate(data: dict):
@@ -73,19 +36,33 @@ def validate_column_name(name: str):
 
 
 class Document:
-    def __init__(self, title: str, course: str, code: str, date: datetime):
+    def __init__(
+        self,
+        title: str,
+        course: str,
+        code: str,
+        date: datetime,
+        filename: str | None = None,
+    ):
         self.__source = DataFrame()
         self.__computed = {}
         self.title = title
         self.code = code
         self.date = date
         self.course = course
+        self.filename = filename
+
+    @staticmethod
+    def new() -> Document:
+        return Document(title="Untitled", course="", code="", date=datetime.now())
 
     @staticmethod
     def from_file(path: str) -> Document:
         with open(path) as file:
             data = json.load(file)
-        return Document.from_dict(data)
+        self = Document.from_dict(data)
+        self.filename = path
+        return self
 
     @staticmethod
     def from_dict(data: dict) -> Document:
@@ -106,9 +83,11 @@ class Document:
     def add_source_column(self, name: str, column: dict):
         validate_column_name(name)
         if all(isinstance(index, str) for index in column):
-            if all(isinstance(value, (float, int)) for value in column.values()):
+            if all(
+                isinstance(value, (float, int, NoneType)) for value in column.values()
+            ):
                 serie = Series(column, dtype=float64)
-            elif all(isinstance(value, str) for value in column.values()):
+            elif all(isinstance(value, (str, NoneType)) for value in column.values()):
                 serie = Series(column)
             else:
                 raise ValueError("Values must be all the same type (number or string)")
@@ -166,15 +145,24 @@ class Document:
         else:
             return "string"
 
-    def save(self, path: str):
+    def save(self, path: str | None):
+        if path is None:
+            if self.filename is not None:
+                path = self.filename
+            else:
+                raise ValueError("No filename")
+
         columns = []
         for name in self.__source.columns:
+            # print(
+            #     type(dict(self.column(name))["11111"]), dict(self.column(name))["11111"]
+            # )
             columns.append(
                 {
                     "type": "source",
                     "dtype": self.column_type(name),
                     "name": name,
-                    "rows": dict(self.column(name)),
+                    "rows": clean_nan(dict(self.column(name))),
                 }
             )
 
@@ -205,11 +193,12 @@ class Document:
                 raise TypeError(f"`{value}` is incompatible with column type `number`")
             if self.__source[column].dtype == "object" and not isinstance(value, str):
                 raise TypeError(f"`{value}` is incompatible with column type `string`")
+            self.__source.loc[coords] = value
         else:
             validate_column_name(column)
             if not isinstance(value, (int, float, str)):
                 raise TypeError("Document only support number and string columns")
-        self.__source.loc[coords] = value
+            self.__source.loc[coords] = value
 
     def __str__(self):
         return str(self.compute())
@@ -245,8 +234,14 @@ def main():
     doc2.add_computed_column("prout", "total * 2")
     doc2.add_computed_column("total", "abs(math)")
     doc2["11111", "name"] = "Quentin"
+    doc2["22222", "info"] = 12.5
     print(doc2)
     doc2.save("test.json")
+    doc3 = Document.from_file("test.json")
+    print(doc3)
+    doc3.add_computed_column("pipi", "info * 2")
+    print(doc3)
+    doc3.save("test2.json")
 
 
 # TODO: on va utiliser textual pour le TUI
