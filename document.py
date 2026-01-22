@@ -99,6 +99,10 @@ class Document:
         validate_column_name(name)
         self.__computed[name] = formula
 
+    @property
+    def column_names(self):
+        return list(self.__source.columns) + list(self.__computed)
+
     def __compute_column(self, df: DataFrame, name: str):
         ns: dict = {
             "__builtins__": {},
@@ -138,6 +142,10 @@ class Document:
 
     def index(self, index: str) -> dict:
         return self.compute().loc[index].to_dict()
+
+    @property
+    def indexes(self):
+        return self.__source.index.to_list()
 
     def column_type(self, name: str) -> str:
         if self.compute()[name].dtype == "float64":
@@ -242,6 +250,7 @@ def main():
     doc3.add_computed_column("pipi", "info * 2")
     print(doc3)
     doc3.save("test2.json")
+    print(doc3.index("11111"))
 
 
 # TODO: on va utiliser textual pour le TUI
