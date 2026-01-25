@@ -1,7 +1,8 @@
 from typing import Callable
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import HorizontalGroup, Grid, Container
-from textual.widgets import Button, Footer, Header, DataTable, Label, Input
+from textual.widgets import Button, Footer, Header, DataTable, Label, Input, TextArea
 from textual.widgets.data_table import RowKey, ColumnKey, CellType
 from textual.reactive import reactive
 from textual.screen import ModalScreen
@@ -9,7 +10,7 @@ from textual.message import Message
 from document import Document
 
 
-class DocumentUpdate(Message):
+class SourceCellUpdate(Message):
     def __init__(self, row: str, column: str, value):
         self.row = row
         self.column = column
@@ -17,16 +18,70 @@ class DocumentUpdate(Message):
         super().__init__()
 
 
+class ComputedColumnUpdate(Message):
+    def __init__(self, column: str, formula: str):
+        self.column = column
+        self.formula = formula
+        super().__init__()
+
+
+class StartEditFormula(Message):
+    def __init__(self, column: str):
+        self.column = column
+        super().__init__()
+
+
 class Sheet(DataTable):
     def on_data_table_cell_selected(self, event: DataTable.CellSelected):
         col_name = event.cell_key.column_key.value
-        type = str if self.app.doc.column_type(col_name) == "string" else float  # type: ignore
-        value = "" if event.value is None else str(event.value)
-        self.app.push_screen(
-            CellInputScreen(
-                event.cell_key.row_key, event.cell_key.column_key, value, type, "end"
+        assert col_name is not None
+        if isinstance(event.value, Text):
+            self.post_message(StartEditFormula(col_name))
+        else:
+            type = str if self.app.doc.column_type(col_name) == "string" else float  # type: ignore
+            value = "" if event.value is None else str(event.value)
+            self.app.push_screen(
+                CellInputScreen(
+                    event.cell_key.row_key,
+                    event.cell_key.column_key,
+                    value,
+                    type,
+                    "end",
+                )
             )
+
+
+class FormulaInputScreen(ModalScreen):
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("shift+enter", "submit", "Submit"),
+    ]
+
+    def __init__(self, column: str, formula: str):
+        super().__init__()
+        self.column = column
+        self.formula = formula
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            TextArea.code_editor(self.formula, language="python"),
+            Button("Ok", variant="success", id="ok"),
+            Button("Cancel", variant="primary", id="cancel"),
         )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "ok":
+            self.action_submit()
+        else:
+            self.action_cancel()
+
+    def action_submit(self):
+        formula = self.query_one(TextArea)
+        self.post_message(ComputedColumnUpdate(self.column, formula.text))
+        self.app.pop_screen()
+
+    def action_cancel(self):
+        self.app.pop_screen()
 
 
 class CellInputScreen(ModalScreen):
@@ -78,7 +133,7 @@ class CellInputScreen(ModalScreen):
         assert isinstance(row, str)
         assert isinstance(column, str)
         value = self.type(self.query_one(Input).value)
-        self.post_message(DocumentUpdate(row, column, value))
+        self.post_message(SourceCellUpdate(row, column, value))
         self.app.pop_screen()
 
     def action_cancel(self):
@@ -103,15 +158,25 @@ class UI(App):
 
     def on_mount(self) -> None:
         self.table = self.query_one(DataTable)
-
         self.render_table()
-
         self.table.cursor_type = "cell"
         self.table.focus()
 
-    def on_document_update(self, event: DocumentUpdate):
+    def on_source_cell_update(self, event: SourceCellUpdate):
         self.doc[event.row, event.column] = event.value
         coord = self.table.cursor_coordinate
+        self.render_table()
+        self.table.cursor_type = "cell"
+        self.table.focus()
+        self.table.cursor_coordinate = coord
+
+    def on_start_edit_formula(self, event: StartEditFormula):
+        formula = self.doc.formula(event.column)
+        self.push_screen(FormulaInputScreen(event.column, formula))
+
+    def on_computed_column_update(self, event: ComputedColumnUpdate):
+        coord = self.table.cursor_coordinate
+        self.doc.set_formula(event.column, event.formula)
         self.render_table()
         self.table.cursor_type = "cell"
         self.table.focus()
@@ -123,11 +188,17 @@ class UI(App):
         cols = self.doc.column_names
 
         for name in cols:
-            self.table.add_column(name, key=name)
+            label = name
+            self.table.add_column(label, key=name)
 
         for index in self.doc.indexes:
             row = self.doc.index(index)
-            values = [row[key] for key in cols]
+            values = []
+            for key in cols:
+                if self.doc.is_computed(key):
+                    values.append(Text(str(row[key]), style="italic #03AC13"))
+                else:
+                    values.append(row[key])
             self.table.add_row(*values, label=index, key=index)
 
 

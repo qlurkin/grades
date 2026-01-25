@@ -99,6 +99,16 @@ class Document:
         validate_column_name(name)
         self.__computed[name] = formula
 
+    def set_formula(self, name: str, formula: str):
+        if name not in self.__computed:
+            raise IndexError(f"{name} is not a computed column")
+        self.__computed[name] = formula
+
+    def formula(self, name: str) -> str:
+        if name not in self.__computed:
+            raise IndexError(f"{name} is not a computed column")
+        return self.__computed[name]
+
     @property
     def column_names(self):
         return list(self.__source.columns) + list(self.__computed)
@@ -139,6 +149,9 @@ class Document:
 
     def column(self, column_name: str) -> dict:
         return self.compute()[column_name].to_dict()
+
+    def is_computed(self, column) -> bool:
+        return column in self.__computed
 
     def index(self, index: str) -> dict:
         return self.compute().loc[index].to_dict()
@@ -193,7 +206,7 @@ class Document:
         return self.compute().loc[coords]
 
     def __setitem__(self, coords: tuple[str, str], value):
-        index, column = coords
+        _, column = coords
         if column in self.__source.columns:
             if self.__source[column].dtype == "float64" and not isinstance(
                 value, (float, int)
@@ -204,6 +217,8 @@ class Document:
             self.__source.loc[coords] = value
         else:
             validate_column_name(column)
+            if column in self.__computed:
+                raise IndexError("Cannot assign values to cells of a computed column")
             if not isinstance(value, (int, float, str)):
                 raise TypeError("Document only support number and string columns")
             self.__source.loc[coords] = value
