@@ -99,6 +99,16 @@ class Document:
         validate_column_name(name)
         self.__computed[name] = formula
 
+    def add_row(self, index: str):
+        if index in self.indexes:
+            raise IndexError("Index already exist")
+
+        values = {}
+        for column in self.__source.columns:
+            values[column] = None
+
+        self.__source.loc[index] = values
+
     def set_formula(self, name: str, formula: str):
         if name not in self.__computed:
             raise IndexError(f"{name} is not a computed column")

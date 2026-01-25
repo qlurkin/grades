@@ -31,6 +31,19 @@ class StartEditFormula(Message):
         super().__init__()
 
 
+class AddColumn(Message):
+    def __init__(self, name: str, computed: bool):
+        self.name = name
+        self.computed = computed
+        super().__init__()
+
+
+class AddRow(Message):
+    def __init__(self, index: str):
+        self.index = index
+        super().__init__()
+
+
 class Sheet(DataTable):
     def on_data_table_cell_selected(self, event: DataTable.CellSelected):
         col_name = event.cell_key.column_key.value
@@ -145,6 +158,8 @@ class UI(App):
     CSS_PATH = "ui.tcss"
     BINDINGS = [
         ("q", "quit", "Quit"),
+        ("t", "add_computed_column", "Test"),
+        ("y", "add_source_column", "Test"),
     ]
 
     def __init__(self, doc: Document):
@@ -182,6 +197,25 @@ class UI(App):
         self.table.focus()
         self.table.cursor_coordinate = coord
 
+    def on_add_column(self, event: AddColumn):
+        coord = self.table.cursor_coordinate
+        if event.computed:
+            self.doc.add_computed_column(event.name, "0")
+        else:
+            self.doc.add_source_column(event.name, {})
+        self.render_table()
+        self.table.cursor_type = "cell"
+        self.table.focus()
+        self.table.cursor_coordinate = coord
+
+    def on_add_row(self, event: AddRow):
+        coord = self.table.cursor_coordinate
+        self.doc.add_row(event.index)
+        self.render_table()
+        self.table.cursor_type = "cell"
+        self.table.focus()
+        self.table.cursor_coordinate = coord
+
     def render_table(self):
         self.table.clear(columns=True)
 
@@ -200,6 +234,15 @@ class UI(App):
                 else:
                     values.append(row[key])
             self.table.add_row(*values, label=index, key=index)
+
+    def action_add_row(self):
+        self.post_message(AddRow("42424"))
+
+    def action_add_computed_column(self):
+        self.post_message(AddColumn("test", True))
+
+    def action_add_source_column(self):
+        self.post_message(AddColumn("test2", False))
 
 
 if __name__ == "__main__":
