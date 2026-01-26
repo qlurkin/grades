@@ -59,9 +59,60 @@ class Sheet(DataTable):
                     event.cell_key.column_key,
                     value,
                     type,
-                    "end",
                 )
             )
+
+
+class AddColumnScreen(ModalScreen):
+    def __init__(self, computed: bool):
+        super().__init__()
+        self.computed = computed
+
+    def compose(self):
+        yield Grid(
+            Label("Column"),
+            Input(),
+            Button("Ok", variant="success", id="ok"),
+            Button("Cancel", variant="primary", id="cancel"),
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "ok":
+            self.action_submit()
+        else:
+            self.action_cancel()
+
+    def action_submit(self):
+        column = self.query_one(Input).value
+        self.post_message(AddColumn(column, self.computed))
+        self.app.pop_screen()
+
+    def action_cancel(self):
+        self.app.pop_screen()
+
+
+class AddRowScreen(ModalScreen):
+    def compose(self):
+        yield Grid(
+            Label("Index"),
+            Input(),
+            Button("Ok", variant="success", id="ok"),
+            Button("Cancel", variant="primary", id="cancel"),
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "ok":
+            self.action_submit()
+        else:
+            self.action_cancel()
+
+    def action_submit(self):
+        index = self.query_one(Input).value
+        self.post_message(AddRow(index))
+        self.app.pop_screen()
+
+    def action_cancel(self):
+        self.app.pop_screen()
 
 
 class FormulaInputScreen(ModalScreen):
@@ -158,8 +209,9 @@ class UI(App):
     CSS_PATH = "ui.tcss"
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("t", "add_computed_column", "Test"),
-        ("y", "add_source_column", "Test"),
+        ("c", "add_computed_column", "Add Computed Column"),
+        ("s", "add_source_column", "Add Source Column"),
+        ("r", "add_row", "Add Row"),
     ]
 
     def __init__(self, doc: Document):
@@ -201,12 +253,15 @@ class UI(App):
         coord = self.table.cursor_coordinate
         if event.computed:
             self.doc.add_computed_column(event.name, "0")
+            self.push_screen(
+                FormulaInputScreen(event.name, self.doc.formula(event.name))
+            )
         else:
             self.doc.add_source_column(event.name, {})
-        self.render_table()
-        self.table.cursor_type = "cell"
-        self.table.focus()
-        self.table.cursor_coordinate = coord
+            self.render_table()
+            self.table.cursor_type = "cell"
+            self.table.focus()
+            self.table.cursor_coordinate = coord
 
     def on_add_row(self, event: AddRow):
         coord = self.table.cursor_coordinate
@@ -236,13 +291,13 @@ class UI(App):
             self.table.add_row(*values, label=index, key=index)
 
     def action_add_row(self):
-        self.post_message(AddRow("42424"))
+        self.push_screen(AddRowScreen())
 
     def action_add_computed_column(self):
-        self.post_message(AddColumn("test", True))
+        self.push_screen(AddColumnScreen(True))
 
     def action_add_source_column(self):
-        self.post_message(AddColumn("test2", False))
+        self.push_screen(AddColumnScreen(False))
 
 
 if __name__ == "__main__":
