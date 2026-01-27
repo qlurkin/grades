@@ -51,6 +51,7 @@ class Document:
         self.date = date
         self.course = course
         self.filename = filename
+        self.dirty = False
 
     @staticmethod
     def new() -> Document:
@@ -62,6 +63,7 @@ class Document:
             data = json.load(file)
         self = Document.from_dict(data)
         self.filename = path
+        self.dirty = False
         return self
 
     @staticmethod
@@ -94,10 +96,12 @@ class Document:
             self.__source[name] = serie
         else:
             raise ValueError("Indexes must be str")
+        self.dirty = True
 
     def add_computed_column(self, name: str, formula: str):
         validate_column_name(name)
         self.__computed[name] = formula
+        self.dirty = True
 
     def add_row(self, index: str):
         if index in self.indexes:
@@ -108,11 +112,13 @@ class Document:
             values[column] = None
 
         self.__source.loc[index] = values
+        self.dirty = True
 
     def set_formula(self, name: str, formula: str):
         if name not in self.__computed:
             raise IndexError(f"{name} is not a computed column")
         self.__computed[name] = formula
+        self.dirty = True
 
     def formula(self, name: str) -> str:
         if name not in self.__computed:
@@ -176,7 +182,7 @@ class Document:
         else:
             return "string"
 
-    def save(self, path: str | None):
+    def save(self, path: str | None = None):
         if path is None:
             if self.filename is not None:
                 path = self.filename
@@ -211,6 +217,7 @@ class Document:
         }
         with open(path, "w", encoding="utf8") as file:
             json.dump(res, file, indent=4)
+        self.dirty = False
 
     def __getitem__(self, coords: tuple[str, str]):
         return self.compute().loc[coords]
@@ -232,6 +239,7 @@ class Document:
             if not isinstance(value, (int, float, str)):
                 raise TypeError("Document only support number and string columns")
             self.__source.loc[coords] = value
+        self.dirty = True
 
     def __str__(self):
         return str(self.compute())

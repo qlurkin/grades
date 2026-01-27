@@ -13,8 +13,14 @@ CellInputScreen Grid {
     background: $surface;
 }
 
-CellInputScreen Button {
+Button {
     width: 100%;
+}
+
+Label {
+  width: 100%;
+  height: 100%;
+  content-align: center middle;
 }
 
 CellInputScreen Label {
@@ -46,4 +52,20 @@ FormulaInputScreen TextArea {
 
 FormulaInputScreen Button {
     width: 100%;
+}
+
+AddColumnScreen, AddRowScreen {
+    align: center middle;
+}
+
+
+AddColumnScreen Grid, AddRowScreen Grid{
+    grid-size: 2;
+    grid-gutter: 1 2;
+    grid-rows: 1fr 3;
+    padding: 0 1;
+    width: 60;
+    height: 9;
+    border: thick $background 80%;
+    background: $surface;
 }

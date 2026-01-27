@@ -64,6 +64,10 @@ class Sheet(DataTable):
 
 
 class AddColumnScreen(ModalScreen):
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
     def __init__(self, computed: bool):
         super().__init__()
         self.computed = computed
@@ -78,11 +82,11 @@ class AddColumnScreen(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "ok":
-            self.action_submit()
+            self.on_input_submitted()
         else:
             self.action_cancel()
 
-    def action_submit(self):
+    def on_input_submitted(self):
         column = self.query_one(Input).value
         self.post_message(AddColumn(column, self.computed))
         self.app.pop_screen()
@@ -92,6 +96,10 @@ class AddColumnScreen(ModalScreen):
 
 
 class AddRowScreen(ModalScreen):
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
     def compose(self):
         yield Grid(
             Label("Index"),
@@ -102,11 +110,11 @@ class AddRowScreen(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "ok":
-            self.action_submit()
+            self.on_input_submitted()
         else:
             self.action_cancel()
 
-    def action_submit(self):
+    def on_input_submitted(self):
         index = self.query_one(Input).value
         self.post_message(AddRow(index))
         self.app.pop_screen()
@@ -212,6 +220,7 @@ class UI(App):
         ("c", "add_computed_column", "Add Computed Column"),
         ("s", "add_source_column", "Add Source Column"),
         ("r", "add_row", "Add Row"),
+        ("w", "save", "Write"),
     ]
 
     def __init__(self, doc: Document):
@@ -272,6 +281,7 @@ class UI(App):
         self.table.cursor_coordinate = coord
 
     def render_table(self):
+        self.title = f"{'⏺︎ ' if self.doc.dirty else ''}{doc.title} - {doc.code} - {doc.course} - {doc.date}"
         self.table.clear(columns=True)
 
         cols = self.doc.column_names
@@ -298,6 +308,14 @@ class UI(App):
 
     def action_add_source_column(self):
         self.push_screen(AddColumnScreen(False))
+
+    def action_save(self):
+        coord = self.table.cursor_coordinate
+        self.doc.save()
+        self.render_table()
+        self.table.cursor_type = "cell"
+        self.table.focus()
+        self.table.cursor_coordinate = coord
 
 
 if __name__ == "__main__":
