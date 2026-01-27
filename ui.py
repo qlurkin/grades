@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Callable
 from rich.text import Text
 from textual.app import App, ComposeResult
@@ -7,7 +8,16 @@ from textual.widgets.data_table import RowKey, ColumnKey, CellType
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.message import Message
+from textual.validation import Function
 from document import Document
+
+
+def is_date(value: str) -> bool:
+    try:
+        datetime.strptime(value, "%d-%m-%Y")
+        return True
+    except ValueError:
+        return False
 
 
 class SourceCellUpdate(Message):
@@ -78,12 +88,24 @@ class FormScreen(ModalScreen):
         widgets = []
         for k, v in self.data.items():
             widgets.append(Label(k.capitalize()))
-            input = Input(v, placeholder=v)
+
+            if isinstance(v, (int, float)):
+                input = Input(str(v), placeholder=str(v), type="number")
+            elif isinstance(v, datetime):
+                date = f"{v:%d-%m-%Y}"
+                input = Input(
+                    date,
+                    placeholder=date,
+                    validators=[Function(is_date, "Date format DD-MM-YYYY")],
+                )
+            else:
+                input = Input(v, placeholder=v)
+
             self.inputs[k] = input
             widgets.append(input)
 
-        widgets.append(Button("Ok", variant="success", id="ok"))
         widgets.append(Button("Cancel", variant="primary", id="cancel"))
+        widgets.append(Button("Ok", variant="success", id="ok"))
 
         yield Grid(*widgets)
 
@@ -97,6 +119,10 @@ class FormScreen(ModalScreen):
         result = {}
         for k, input in self.inputs.items():
             result[k] = input.value
+            if isinstance(self.data[k], (int, float)):
+                result[k] = float(input.value)
+            elif isinstance(self.data[k], datetime):
+                result[k] = datetime.strptime(input.value, "%d-%m-%Y")
 
         self.callback(result)
         self.app.pop_screen()
@@ -365,6 +391,7 @@ class UI(App):
             self.doc.title = result["title"]
             self.doc.code = result["code"]
             self.doc.course = result["course"]
+            self.doc.date = result["date"]
             coord = self.table.cursor_coordinate
             self.render_table()
             self.table.cursor_type = "cell"
@@ -375,6 +402,7 @@ class UI(App):
             "title": self.doc.title,
             "code": self.doc.code,
             "course": self.doc.course,
+            "date": self.doc.date,
         }
 
         self.push_screen(FormScreen(data, cb))
