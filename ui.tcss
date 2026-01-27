@@ -69,3 +69,18 @@ AddColumnScreen Grid, AddRowScreen Grid{
     border: thick $background 80%;
     background: $surface;
 }
+
+FormScreen {
+    align: center middle;
+}
+
+FormScreen Grid {
+    grid-size: 2;
+    grid-gutter: 1 2;
+    grid-rows: 3;
+    padding: 0 1;
+    width: 60;
+    height: auto;
+    border: thick $background 80%;
+    background: $surface;
+}

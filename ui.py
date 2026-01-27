@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Any, Callable
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import HorizontalGroup, Grid, Container
@@ -61,6 +61,48 @@ class Sheet(DataTable):
                     type,
                 )
             )
+
+
+class FormScreen(ModalScreen):
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self, data: dict[str, Any], callback: Callable):
+        super().__init__()
+        self.data = data
+        self.callback = callback
+
+    def compose(self):
+        self.inputs = {}
+        widgets = []
+        for k, v in self.data.items():
+            widgets.append(Label(k.capitalize()))
+            input = Input(v, placeholder=v)
+            self.inputs[k] = input
+            widgets.append(input)
+
+        widgets.append(Button("Ok", variant="success", id="ok"))
+        widgets.append(Button("Cancel", variant="primary", id="cancel"))
+
+        yield Grid(*widgets)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "ok":
+            self.on_input_submitted()
+        else:
+            self.action_cancel()
+
+    def on_input_submitted(self):
+        result = {}
+        for k, input in self.inputs.items():
+            result[k] = input.value
+
+        self.callback(result)
+        self.app.pop_screen()
+
+    def action_cancel(self):
+        self.app.pop_screen()
 
 
 class AddColumnScreen(ModalScreen):
@@ -221,6 +263,7 @@ class UI(App):
         ("s", "add_source_column", "Add Source Column"),
         ("r", "add_row", "Add Row"),
         ("w", "save", "Write"),
+        ("m", "metadata", "Metadata"),
     ]
 
     def __init__(self, doc: Document):
@@ -281,7 +324,7 @@ class UI(App):
         self.table.cursor_coordinate = coord
 
     def render_table(self):
-        self.title = f"{'⏺︎ ' if self.doc.dirty else ''}{doc.title} - {doc.code} - {doc.course} - {doc.date}"
+        self.title = f"{'⏺︎ ' if self.doc.dirty else ''}{doc.title} - {doc.code} - {doc.course} - {doc.date:%d-%m-%Y}"
         self.table.clear(columns=True)
 
         cols = self.doc.column_names
@@ -316,6 +359,25 @@ class UI(App):
         self.table.cursor_type = "cell"
         self.table.focus()
         self.table.cursor_coordinate = coord
+
+    def action_metadata(self):
+        def cb(result):
+            self.doc.title = result["title"]
+            self.doc.code = result["code"]
+            self.doc.course = result["course"]
+            coord = self.table.cursor_coordinate
+            self.render_table()
+            self.table.cursor_type = "cell"
+            self.table.focus()
+            self.table.cursor_coordinate = coord
+
+        data = {
+            "title": self.doc.title,
+            "code": self.doc.code,
+            "course": self.doc.course,
+        }
+
+        self.push_screen(FormScreen(data, cb))
 
 
 if __name__ == "__main__":

@@ -46,12 +46,57 @@ class Document:
     ):
         self.__source = DataFrame()
         self.__computed = {}
-        self.title = title
-        self.code = code
-        self.date = date
-        self.course = course
-        self.filename = filename
+        self.__title = title
+        self.__code = code
+        self.__date = date
+        self.__course = course
+        self.__filename = filename
         self.dirty = False
+
+    @property
+    def title(self):
+        return self.__title
+
+    @title.setter
+    def title(self, value):
+        self.__title = value
+        self.dirty = True
+
+    @property
+    def code(self):
+        return self.__code
+
+    @code.setter
+    def code(self, value):
+        self.__code = value
+        self.dirty = True
+
+    @property
+    def course(self):
+        return self.__course
+
+    @course.setter
+    def course(self, value):
+        self.__course = value
+        self.dirty = True
+
+    @property
+    def date(self):
+        return self.__date
+
+    @date.setter
+    def date(self, value):
+        self.__date = value
+        self.dirty = True
+
+    @property
+    def filename(self):
+        return self.__filename
+
+    @filename.setter
+    def filename(self, value):
+        self.__filename = value
+        self.dirty = True
 
     @staticmethod
     def new() -> Document:
