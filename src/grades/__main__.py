@@ -1,9 +1,30 @@
 from .document import Document
 from .ui import UI
-from datetime import datetime
+import argparse
+from pathlib import Path
 
 if __name__ == "__main__":
-    doc = Document(
-        title="No Title", course="No Course", code="xxxxxx", date=datetime.now()
+    parser = argparse.ArgumentParser(
+        prog="grades",
+        description="A Excel like TUI",
     )
+
+    parser.add_argument(
+        "filename",
+        help="The file to open or to create",
+        nargs="?",
+    )
+
+    args = parser.parse_args()
+
+    if args.filename is None:
+        doc = Document.new()
+    else:
+        path = Path(args.filename)
+        if path.exists():
+            doc = Document.from_file(str(path))
+        else:
+            doc = Document.new()
+            doc.filename = str(path)
+
     UI(doc).run()

@@ -8,7 +8,7 @@ from textual.widgets.data_table import RowKey, ColumnKey
 from textual.screen import ModalScreen
 from textual.message import Message
 from textual.validation import Function
-from document import Document
+from .document import Document
 from pathlib import Path
 
 
@@ -350,7 +350,7 @@ class UI(App):
         self.table.cursor_coordinate = coord
 
     def render_table(self):
-        self.title = f"{'⏺︎ ' if self.doc.dirty else ''}{doc.title} - {doc.code} - {doc.course} - {doc.date:%d-%m-%Y}"
+        self.title = f"{'⏺︎ ' if self.doc.dirty else ''}{self.doc.title} - {self.doc.code} - {self.doc.course} - {self.doc.date:%d-%m-%Y}"
         self.table.clear(columns=True)
 
         cols = self.doc.column_names
