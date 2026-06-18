@@ -101,7 +101,9 @@ class Document:
 
     @staticmethod
     def new() -> Document:
-        return Document(title="Untitled", course="", code="", date=datetime.now())
+        return Document(
+            title="Untitled", course="WithoutCourse", code="nocode", date=datetime.now()
+        )
 
     @staticmethod
     def from_file(path: str) -> Document:
@@ -228,12 +230,9 @@ class Document:
         else:
             return "string"
 
-    def save(self, path: str | None = None):
-        if path is None:
-            if self.filename is not None:
-                path = self.filename
-            else:
-                raise ValueError("No filename")
+    def save(self):
+        if self.filename is None:
+            raise ValueError("No filename")
 
         columns = []
         for name in self.__source.columns:
@@ -261,7 +260,7 @@ class Document:
             "datetime": self.date.isoformat(),
             "columns": columns,
         }
-        with open(path, "w", encoding="utf8") as file:
+        with open(self.filename, "w", encoding="utf8") as file:
             json.dump(res, file, indent=4)
         self.dirty = False
 
@@ -323,12 +322,14 @@ def main():
     doc2["11111", "name"] = "Quentin"
     doc2["22222", "info"] = 12.5
     print(doc2)
-    doc2.save("test.json")
+    doc2.filename = "test.json"
+    doc2.save()
     doc3 = Document.from_file("test.json")
     print(doc3)
     doc3.add_computed_column("pipi", "info * 2")
     print(doc3)
-    doc3.save("test2.json")
+    doc3.filename = "test2.json"
+    doc3.save()
     print(doc3.index("11111"))
 
 

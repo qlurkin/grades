@@ -380,6 +380,7 @@ class UI(App):
 
     def action_save(self):
         coord = self.table.cursor_coordinate
+        # TODO: Deal with doc that don't have filename
         self.doc.save()
         self.render_table()
         self.table.cursor_type = "cell"
@@ -406,8 +407,3 @@ class UI(App):
         }
 
         self.push_screen(FormScreen(data, cb))
-
-
-if __name__ == "__main__":
-    doc = Document.from_file("test.json")
-    UI(doc).run()
