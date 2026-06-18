@@ -1,7 +1,7 @@
 [project]
 name = "grades"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Simple Command Line Tabler Specialized in Students Grades Management"
 readme = "README.md"
 authors = [{ name = "Quentin Lurkin", email = "qlurkin@gmail.com" }]
 requires-python = ">=3.13"

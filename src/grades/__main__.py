@@ -6,7 +6,7 @@ from pathlib import Path
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="grades",
-        description="A Excel like TUI",
+        description="A Simple Command Line Tabler Specialized in Students Grades Management",
     )
 
     parser.add_argument(
