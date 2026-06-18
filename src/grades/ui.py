@@ -2,14 +2,14 @@ from datetime import datetime
 from typing import Any, Callable
 from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.containers import HorizontalGroup, Grid, Container
+from textual.containers import Grid, Container
 from textual.widgets import Button, Footer, Header, DataTable, Label, Input, TextArea
-from textual.widgets.data_table import RowKey, ColumnKey, CellType
-from textual.reactive import reactive
+from textual.widgets.data_table import RowKey, ColumnKey
 from textual.screen import ModalScreen
 from textual.message import Message
 from textual.validation import Function
 from document import Document
+from pathlib import Path
 
 
 def is_date(value: str) -> bool:
@@ -282,7 +282,7 @@ class CellInputScreen(ModalScreen):
 
 class UI(App):
     TITLE = "Grades"
-    CSS_PATH = "ui.tcss"
+    CSS_PATH = Path(__file__).parent / "ui.tcss"
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("c", "add_computed_column", "Add Computed Column"),

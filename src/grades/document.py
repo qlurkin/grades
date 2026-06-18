@@ -6,13 +6,14 @@ import math
 from pandas import DataFrame, Series
 import json
 from datetime import datetime
+from pathlib import Path
 
 
 class CyclicDependencyError(Exception):
     pass
 
 
-with open("schema.json") as file:
+with open(Path(__file__).parent / "schema.json") as file:
     schema = json.load(file)
 
 

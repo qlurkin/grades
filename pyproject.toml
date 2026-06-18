@@ -3,9 +3,13 @@ name = "grades"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
+authors = [{ name = "Quentin Lurkin", email = "qlurkin@gmail.com" }]
 requires-python = ">=3.13"
-dependencies = [
-    "jsonschema>=4.25.1",
-    "pandas>=2.3.3",
-    "textual[syntax]>=7.3.0",
-]
+dependencies = ["jsonschema>=4.25.1", "pandas>=2.3.3", "textual[syntax]>=7.3.0"]
+
+[project.scripts]
+grades = "grades:main"
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"
