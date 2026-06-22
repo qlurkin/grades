@@ -3,10 +3,11 @@ from types import NoneType
 from jsonschema import validate as check_schema
 from numpy import float64, floor, ceil, abs, min, max, round
 import math
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, read_csv, concat
 import json
 from datetime import datetime
 from pathlib import Path
+from functools import partial
 
 
 class CyclicDependencyError(Exception):
@@ -15,6 +16,25 @@ class CyclicDependencyError(Exception):
 
 with open(Path(__file__).parent / "schema.json") as file:
     schema = json.load(file)
+
+
+def load_csv(
+    root: Path | str,
+    path: Path | str,
+    column: str,
+    delimiter=";",
+    index_col="matricule",
+    decimal=",",
+) -> Series:
+    root = Path(root)
+    path = Path(path)
+    if not path.is_absolute():
+        path = (root / path).resolve()
+    doc = read_csv(path, delimiter=delimiter, index_col=index_col, decimal=decimal)
+    res = doc[column]
+    if not isinstance(res, Series):
+        raise TypeError(f"No column {column} in {path}")
+    return res
 
 
 def clean_nan(obj):
@@ -178,6 +198,13 @@ class Document:
         return list(self.__source.columns) + list(self.__computed)
 
     def __compute_column(self, df: DataFrame, name: str):
+        # TODO: Add builtins to load csv and/or json
+
+        if self.filename is None:
+            root = Path.cwd()
+        else:
+            root = Path(self.filename).parent
+
         ns: dict = {
             "__builtins__": {},
             "max": max,
@@ -186,11 +213,14 @@ class Document:
             "floor": floor,
             "round": round,
             "abs": abs,
+            "csv": partial(load_csv, root),
         }
-        # ns = {}
         for col in df.columns:
             ns[col] = df[col]
-        df[name] = eval(self.__computed[name], ns)
+        # df[name] = eval(self.__computed[name], ns)
+        s = eval(self.__computed[name], ns)
+        df = concat([df, s.rename(name)], axis=1)
+        return df
 
     def compute(self) -> DataFrame:
         df = self.__source.copy()
@@ -202,7 +232,7 @@ class Document:
                 raise CyclicDependencyError()
             name = to_compute.pop(0)
             try:
-                self.__compute_column(df, name)
+                df = self.__compute_column(df, name)
             except NameError as e:
                 if e.name not in self.__computed:
                     raise e
@@ -222,7 +252,7 @@ class Document:
 
     @property
     def indexes(self):
-        return self.__source.index.to_list()
+        return self.compute().index.to_list()
 
     def column_type(self, name: str) -> str:
         if self.compute()[name].dtype == "float64":
